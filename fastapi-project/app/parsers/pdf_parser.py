@@ -2,53 +2,36 @@ from typing import Dict, Any, List
 import PyPDF2
 import re
 
-async def parse_disciplines(file_path: str) -> List[Dict[str, Any]]:
-    """
-    Парсинг виборчих дисциплін з PDF файлу
-    """
+async def parse_disciplines(file_path: str, limit: int = 5) -> List[Dict[str, Any]]:
     try:
-        # Відкриття PDF файлу
         with open(file_path, 'rb') as file:
             reader = PyPDF2.PdfReader(file)
             text = ""
             
-            # Отримання тексту з усіх сторінок
             for page in reader.pages:
                 text += page.extract_text()
         
-        # Реалізація парсингу тексту в структуровані дані
-        # Це спрощена реалізація - вам потрібно буде адаптувати її під реальний формат вашого PDF
-        
         disciplines = []
         
-        # Шаблон для виявлення дисциплін - це приблизний підхід
-        # Для реальних документів потрібно налаштовувати регулярні вирази
         discipline_blocks = re.split(r'\n\s*\n', text)
         
         for block in discipline_blocks:
             if re.search(r'назва дисципліни|код дисципліни', block, re.IGNORECASE):
-                # Витягаємо назву дисципліни
                 name_match = re.search(r'назва(?:\s+дисципліни)?[:\s]+([^\n]+)', block, re.IGNORECASE)
                 name = name_match.group(1).strip() if name_match else ""
                 
-                # Витягаємо код дисципліни
                 code_match = re.search(r'код(?:\s+дисципліни)?[:\s]+([^\n]+)', block, re.IGNORECASE)
                 code = code_match.group(1).strip() if code_match else ""
                 
-                # Витягаємо факультет
                 faculty_match = re.search(r'факультет[:\s]+([^\n]+)', block, re.IGNORECASE)
                 faculty = faculty_match.group(1).strip() if faculty_match else ""
                 
-                # Витягаємо кількість людей
                 min_count_match = re.search(r'мін(?:імальна)?(?:\s+кількість)?[:\s]+(\d+)', block, re.IGNORECASE)
                 min_count = int(min_count_match.group(1)) if min_count_match else 0
                 
                 max_count_match = re.search(r'макс(?:имальна)?(?:\s+кількість)?[:\s]+(\d+)', block, re.IGNORECASE)
                 max_count = int(max_count_match.group(1)) if max_count_match else 0
                 
-                # Додаткові поля можна додати за аналогією
-                
-                # Формування об'єкту details
                 details = {
                     "departmentId": 0,
                     "teacher": "",
@@ -64,12 +47,10 @@ async def parse_disciplines(file_path: str) -> List[Dict[str, Any]]:
                     "typeOfControll": ""
                 }
                 
-                # Заповнюємо details з даних блоку
                 teacher_match = re.search(r'викладач[:\s]+([^\n]+)', block, re.IGNORECASE)
                 if teacher_match:
                     details["teacher"] = teacher_match.group(1).strip()
                 
-                # Формування об'єкту дисципліни
                 discipline = {
                     "nameAddDisciplines": name,
                     "codeAddDisciplines": code,
@@ -84,43 +65,36 @@ async def parse_disciplines(file_path: str) -> List[Dict[str, Any]]:
                     "idAddDisciplines": 0
                 }
                 disciplines.append(discipline)
+                
+                if len(disciplines) >= limit:
+                    break
         
-        return disciplines
+        return disciplines[:limit]
     
     except Exception as e:
         print(f"Помилка при парсингу PDF файлу дисциплін: {str(e)}")
         raise ValueError(f"Не вдалося розібрати PDF файл дисциплін: {str(e)}")
 
 async def parse_educational_programs(file_path: str) -> Dict[str, Any]:
-    """
-    Парсинг освітніх програм з PDF файлу
-    """
     try:
-        # Відкриття PDF файлу
         with open(file_path, 'rb') as file:
             reader = PyPDF2.PdfReader(file)
             text = ""
             
-            # Отримання тексту з усіх сторінок
-            for page in reader.pages:
+            for i, page in enumerate(reader.pages):
                 text += page.extract_text()
+                if i >= 2:
+                    break
         
-        # Реалізація парсингу тексту в структуровані дані
-        # Це спрощена реалізація - вам потрібно буде адаптувати її під реальний формат вашого PDF
-        
-        # Витягаємо назву освітньої програми
         name_match = re.search(r'(?:назва|найменування)(?:\s+освітньої)?(?:\s+програми)?[:\s]+([^\n]+)', text, re.IGNORECASE)
         name = name_match.group(1).strip() if name_match else ""
         
-        # Витягаємо ступінь
         degree_match = re.search(r'ступінь[:\s]+([^\n]+)', text, re.IGNORECASE)
         degree = degree_match.group(1).strip() if degree_match else ""
         
-        # Витягаємо спеціальність
         speciality_match = re.search(r'спеціальність[:\s]+([^\n]+)', text, re.IGNORECASE)
         speciality = speciality_match.group(1).strip() if speciality_match else ""
         
-        # Формування об'єкту освітньої програми
         educational_program = {
             "idEducationalProgram": 0,
             "nameEducationalProgram": name,
@@ -139,18 +113,15 @@ async def parse_educational_programs(file_path: str) -> Dict[str, Any]:
             "disciplinesCount": 0
         }
         
-        # Шаблон для витягнення інформації про основні дисципліни
-        # Це дуже спрощений підхід - для реальних документів потрібно буде налаштовувати
-        
         main_disciplines = []
         
-        # Пошук блоків даних про дисципліни
         discipline_blocks = re.finditer(
             r'(?:код|шифр)[:\s]+([^\n]+).*?(?:кредити|ЄКТС)[:\s]+(\d+).*?(?:форма контролю)[:\s]+([^\n]+).*?(?:семестр)[:\s]+(\d+)', 
             text, 
             re.IGNORECASE | re.DOTALL
         )
         
+        count = 0
         for match in discipline_blocks:
             discipline = {
                 "idBindMainDisciplines": 0,
@@ -161,6 +132,10 @@ async def parse_educational_programs(file_path: str) -> Dict[str, Any]:
                 "educationalProgramName": name
             }
             main_disciplines.append(discipline)
+            
+            count += 1
+            if count >= 5: 
+                break
         
         return {
             "educationalProgram": educational_program,

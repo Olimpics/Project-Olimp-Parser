@@ -2,47 +2,34 @@ from typing import Dict, Any, List
 import docx
 import re
 
-async def parse_disciplines(file_path: str) -> List[Dict[str, Any]]:
-    """
-    Парсинг виборчих дисциплін з Word файлу
-    """
+async def parse_disciplines(file_path: str, limit: int = 5) -> List[Dict[str, Any]]:
     try:
-        # Відкриття Word файлу
         doc = docx.Document(file_path)
         
-        # Отримання тексту з усіх параграфів
-        text = "\n".join([paragraph.text for paragraph in doc.paragraphs])
-        
-        # Реалізація парсингу тексту в структуровані дані
-        # Це спрощена реалізація - вам потрібно буде адаптувати її під реальний формат вашого документа
+        paragraphs = doc.paragraphs[:min(100, len(doc.paragraphs))]
+        text = "\n".join([paragraph.text for paragraph in paragraphs])
         
         disciplines = []
         
-        # Шаблон для виявлення дисциплін - це приблизний підхід
         discipline_blocks = re.split(r'\n\s*\n', text)
         
         for block in discipline_blocks:
             if re.search(r'назва дисципліни|код дисципліни', block, re.IGNORECASE):
-                # Витягаємо назву дисципліни
                 name_match = re.search(r'назва(?:\s+дисципліни)?[:\s]+([^\n]+)', block, re.IGNORECASE)
                 name = name_match.group(1).strip() if name_match else ""
                 
-                # Витягаємо код дисципліни
                 code_match = re.search(r'код(?:\s+дисципліни)?[:\s]+([^\n]+)', block, re.IGNORECASE)
                 code = code_match.group(1).strip() if code_match else ""
                 
-                # Витягаємо факультет
                 faculty_match = re.search(r'факультет[:\s]+([^\n]+)', block, re.IGNORECASE)
                 faculty = faculty_match.group(1).strip() if faculty_match else ""
                 
-                # Витягаємо кількість людей
                 min_count_match = re.search(r'мін(?:імальна)?(?:\s+кількість)?[:\s]+(\d+)', block, re.IGNORECASE)
                 min_count = int(min_count_match.group(1)) if min_count_match else 0
                 
                 max_count_match = re.search(r'макс(?:имальна)?(?:\s+кількість)?[:\s]+(\d+)', block, re.IGNORECASE)
                 max_count = int(max_count_match.group(1)) if max_count_match else 0
                 
-                # Формування об'єкту details
                 details = {
                     "departmentId": 0,
                     "teacher": "",
@@ -58,12 +45,10 @@ async def parse_disciplines(file_path: str) -> List[Dict[str, Any]]:
                     "typeOfControll": ""
                 }
                 
-                # Заповнюємо details з даних блоку
                 teacher_match = re.search(r'викладач[:\s]+([^\n]+)', block, re.IGNORECASE)
                 if teacher_match:
                     details["teacher"] = teacher_match.group(1).strip()
                 
-                # Формування об'єкту дисципліни
                 discipline = {
                     "nameAddDisciplines": name,
                     "codeAddDisciplines": code,
@@ -78,40 +63,32 @@ async def parse_disciplines(file_path: str) -> List[Dict[str, Any]]:
                     "idAddDisciplines": 0
                 }
                 disciplines.append(discipline)
+                
+                if len(disciplines) >= limit:
+                    break
         
-        return disciplines
+        return disciplines[:limit]
     
     except Exception as e:
         print(f"Помилка при парсингу Word файлу дисциплін: {str(e)}")
         raise ValueError(f"Не вдалося розібрати Word файл дисциплін: {str(e)}")
 
 async def parse_educational_programs(file_path: str) -> Dict[str, Any]:
-    """
-    Парсинг освітніх програм з Word файлу
-    """
     try:
-        # Відкриття Word файлу
         doc = docx.Document(file_path)
         
-        # Отримання тексту з усіх параграфів
-        text = "\n".join([paragraph.text for paragraph in doc.paragraphs])
+        paragraphs = doc.paragraphs[:min(100, len(doc.paragraphs))]
+        text = "\n".join([paragraph.text for paragraph in paragraphs])
         
-        # Реалізація парсингу тексту в структуровані дані
-        # Це спрощена реалізація - вам потрібно буде адаптувати її під реальний формат вашого документа
-        
-        # Витягаємо назву освітньої програми
         name_match = re.search(r'(?:назва|найменування)(?:\s+освітньої)?(?:\s+програми)?[:\s]+([^\n]+)', text, re.IGNORECASE)
         name = name_match.group(1).strip() if name_match else ""
         
-        # Витягаємо ступінь
         degree_match = re.search(r'ступінь[:\s]+([^\n]+)', text, re.IGNORECASE)
         degree = degree_match.group(1).strip() if degree_match else ""
         
-        # Витягаємо спеціальність
         speciality_match = re.search(r'спеціальність[:\s]+([^\n]+)', text, re.IGNORECASE)
         speciality = speciality_match.group(1).strip() if speciality_match else ""
         
-        # Формування об'єкту освітньої програми
         educational_program = {
             "idEducationalProgram": 0,
             "nameEducationalProgram": name,
@@ -130,16 +107,14 @@ async def parse_educational_programs(file_path: str) -> Dict[str, Any]:
             "disciplinesCount": 0
         }
         
-        # Шаблон для витягнення інформації про основні дисципліни
         main_disciplines = []
         
-        # Аналіз таблиць у документі для пошуку дисциплін
-        for table in doc.tables:
-            for row_idx, row in enumerate(table.rows):
-                if row_idx == 0:  # Пропускаємо заголовок таблиці
-                    continue
+        table_limit = min(5, len(doc.tables))
+        for table in doc.tables[:table_limit]:
+            row_limit = min(6, len(table.rows)) 
+            for row_idx in range(1, row_limit):
+                row = table.rows[row_idx]
                 
-                # Припускаємо, що стовпці таблиці містять дані про дисципліни
                 cells = [cell.text.strip() for cell in row.cells]
                 
                 if len(cells) >= 4:
@@ -160,7 +135,7 @@ async def parse_educational_programs(file_path: str) -> Dict[str, Any]:
         
         return {
             "educationalProgram": educational_program,
-            "mainDisciplines": main_disciplines
+            "mainDisciplines": main_disciplines[:5]
         }
     
     except Exception as e:

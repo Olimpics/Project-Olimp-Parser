@@ -2,51 +2,76 @@ from typing import Dict, Any, List
 import pandas as pd
 import os
 
-async def parse_students(file_path: str) -> List[Dict[str, Any]]:
-    """
-    Парсинг студентів з Excel файлу
-    """
+async def parse_students(file_path: str, limit: int = 5) -> List[Dict[str, Any]]:
     try:
-        # Завантаження файлу Excel
-        df = pd.read_excel(file_path)
+        df = pd.read_excel(file_path, header=None)
+        
+        df = df.iloc[1:]
+        
+        if len(df) > limit:
+            df = df.iloc[:limit]
         
         students = []
         for _, row in df.iterrows():
-            # Перетворення дат в необхідний формат
+            status_col = 1     # B: Статус
+            id_col = 2         # C: ID ФО
+            name_col = 3       # D: Здобувач
+            start_date_col = 5 # F: Початок навчання
+            end_date_col = 6   # G: Завершення навчання
+            faculty_col = 7    # H: Структурний підрозділ (факультет)
+            degree_col = 9     # J: Освітній ступінь
+            study_form_col = 10 # K: Форма навчання
+            is_short_col = 11   # L: Чи скорочений термін
+            edu_prog_col = 14   # O: ID ОП
+            course_col = 17     # R: Курс
+            group_col = 18      # S: Група
+            
             education_start = None
-            if "Дата початку навчання" in row and pd.notna(row["Дата початку навчання"]):
-                start_date = pd.to_datetime(row["Дата початку навчання"])
-                education_start = {
-                    "year": start_date.year,
-                    "month": start_date.month,
-                    "day": start_date.day,
-                    "dayOfWeek": start_date.dayofweek
-                }
+            if pd.notna(row[start_date_col]):
+                try:
+                    start_date = pd.to_datetime(row[start_date_col])
+                    education_start = {
+                        "year": int(start_date.year),
+                        "month": int(start_date.month),
+                        "day": int(start_date.day),
+                        "dayOfWeek": int(start_date.dayofweek)
+                    }
+                except Exception as e:
+                    print(f"Помилка при обробці дати початку навчання: {str(e)}")
             
             education_end = None
-            if "Дата закінчення навчання" in row and pd.notna(row["Дата закінчення навчання"]):
-                end_date = pd.to_datetime(row["Дата закінчення навчання"])
-                education_end = {
-                    "year": end_date.year,
-                    "month": end_date.month,
-                    "day": end_date.day,
-                    "dayOfWeek": end_date.dayofweek
-                }
+            if pd.notna(row[end_date_col]):
+                try:
+                    end_date = pd.to_datetime(row[end_date_col])
+                    education_end = {
+                        "year": int(end_date.year),
+                        "month": int(end_date.month),
+                        "day": int(end_date.day),
+                        "dayOfWeek": int(end_date.dayofweek)
+                    }
+                except Exception as e:
+                    print(f"Помилка при обробці дати завершення навчання: {str(e)}")
             
-            # Формування об'єкту студента
+            is_short = "0"
+            if pd.notna(row[is_short_col]):
+                is_short_val = str(row[is_short_col]).strip().lower()
+                if is_short_val == "так":
+                    is_short = "1"
+            
             student = {
-                "nameStudent": row.get("ПІБ", ""),
-                "statusId": int(row.get("Статус", 0)),
+                "studentID": int(row[id_col]) if pd.notna(row[id_col]) else 0,
+                "nameStudent": str(row[name_col]) if pd.notna(row[name_col]) else "",
+                "statusId": str(row[status_col]) if pd.notna(row[status_col]) else "0",
                 "educationStart": education_start,
                 "educationEnd": education_end,
-                "course": int(row.get("Курс", 0)),
-                "facultyId": int(row.get("Факультет ID", 0)),
-                "educationalDegreeId": int(row.get("Освітній ступінь ID", 0)),
-                "studyFormId": int(row.get("Форма навчання ID", 0)),
-                "isShort": int(row.get("Скорочений", 0)),
-                "educationalProgramId": int(row.get("Освітня програма ID", 0)),
-                "departmentId": int(row.get("Кафедра ID", 0)),
-                "groupId": int(row.get("Група ID", 0))
+                "course": str(row[course_col]) if pd.notna(row[course_col]) else "0",
+                "facultyId": str(row[faculty_col]) if pd.notna(row[faculty_col]) else "0",
+                "educationalDegreeId": str(row[degree_col]) if pd.notna(row[degree_col]) else "0",
+                "studyFormId": str(row[study_form_col]) if pd.notna(row[study_form_col]) else "0",
+                "isShort": is_short,
+                "educationalProgramId": str(row[edu_prog_col]) if pd.notna(row[edu_prog_col]) else "0",
+                "departmentId": "0",  # За замовчуванням
+                "groupId": str(row[group_col]) if pd.notna(row[group_col]) else "0"
             }
             students.append(student)
         
@@ -56,17 +81,14 @@ async def parse_students(file_path: str) -> List[Dict[str, Any]]:
         print(f"Помилка при парсингу Excel файлу студентів: {str(e)}")
         raise ValueError(f"Не вдалося розібрати файл студентів: {str(e)}")
 
-async def parse_disciplines(file_path: str) -> List[Dict[str, Any]]:
-    """
-    Парсинг виборчих дисциплін з Excel файлу
-    """
+async def parse_disciplines(file_path: str, limit: int = 5) -> List[Dict[str, Any]]:
     try:
-        # Завантаження файлу Excel
         df = pd.read_excel(file_path)
+        
+        df = df.head(limit)
         
         disciplines = []
         for _, row in df.iterrows():
-            # Формування об'єкту дисципліни
             details = {
                 "departmentId": int(row.get("Кафедра ID", 0)),
                 "teacher": row.get("Викладач", ""),
