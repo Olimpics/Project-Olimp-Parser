@@ -26,6 +26,7 @@ class ParserService:
             raise ValueError(f"Непідтримуваний формат файлу для парсингу дисциплін: {file_extension}")
     
     async def parse_educational_programs(self, file_path: str, file_extension: str) -> Dict[str, Any]:
+
         if file_extension == '.pdf':
             program_data = await pdf_parser.parse_educational_programs(file_path)
             return program_data

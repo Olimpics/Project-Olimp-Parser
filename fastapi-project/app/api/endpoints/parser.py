@@ -78,7 +78,7 @@ async def parse_disciplines(filename: str, limit: int = Query(5, description="М
 
 @router.get("/parse-educational-programs/{filename}", response_model=Dict[str, Any])
 async def parse_educational_programs(filename: str):
-    """Парсинг файлу з освітніми програмами за назвою файлу"""
+    """Парсинг файлу з освітніми програмами за назвою файлу (без обмежень)"""
     file_extension = os.path.splitext(filename)[1].lower()
     
     if file_extension not in ['.pdf', '.docx']:
@@ -94,8 +94,6 @@ async def parse_educational_programs(filename: str):
     
     try:
         result = await parser_service.parse_educational_programs(file_path, file_extension)
-        
-        result["note"] = "Для тестування обробка була обмежена першими сторінками документа"
         
         return result
     

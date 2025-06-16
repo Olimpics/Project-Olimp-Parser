@@ -13,19 +13,19 @@ async def parse_students(file_path: str, limit: int = 5) -> List[Dict[str, Any]]
         
         students = []
         for _, row in df.iterrows():
-            status_col = 1     # B: Статус
-            id_col = 2         # C: ID ФО
-            name_col = 3       # D: Здобувач
-            start_date_col = 5 # F: Початок навчання
-            end_date_col = 6   # G: Завершення навчання
-            faculty_col = 7    # H: Структурний підрозділ (факультет)
-            degree_col = 9     # J: Освітній ступінь
-            study_form_col = 10 # K: Форма навчання
-            is_short_col = 11   # L: Чи скорочений термін
-            edu_prog_col = 14   # O: ID ОП
-            course_col = 17     # R: Курс
-            group_col = 18      # S: Група
-            
+            status_col = 1  # B: Статус
+            id_col = 2  # C: ID ФО
+            name_col = 3    # D: Здобувач
+            start_date_col = 5  # F: Початок навчання
+            end_date_col = 6    # G: Завершення навчання
+            faculty_col = 7  # H: Структурний підрозділ (факультет)
+            degree_col = 9  # J: Освітній ступінь
+            study_form_col = 10  # K: Форма навчання
+            is_short_col = 11  # L: Чи скорочений термін
+            edu_prog_col = 14  # O: ID ОП
+            course_col = 17  # R: Курс
+            group_col = 18  # S: Група
+
             education_start = None
             if pd.notna(row[start_date_col]):
                 try:
