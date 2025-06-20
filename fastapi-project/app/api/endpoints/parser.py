@@ -99,7 +99,7 @@ async def parse_students(filename: str, limit: int = Query(5, description="Ма�
         )
     
     try:
-        students = await parser_service.parse_students(file_path, file_extension, limit)
+        students = await parser_service.parse_students(file_path, file_extension, int(limit))
         
         return {
             "status": "success",
