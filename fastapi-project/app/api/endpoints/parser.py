@@ -24,7 +24,7 @@ class ParseEducationalProgramsRequest(BaseModel):
 
 @router.post("/parse-students", response_model=Dict[str, Any])
 async def parse_students(request_data: ParseStudentsRequest):
-    filename = request_data.filename
+    filename = request_data.fileName
     limit = request_data.limit
     
     if not filename:
