@@ -4,6 +4,8 @@ from typing import Dict, Any, List, Optional
 import os
 from app.services.parser_service import ParserService
 from app.core.config import settings
+from pathlib import Path
+
 
 router = APIRouter()
 parser_service = ParserService()
@@ -99,3 +101,21 @@ async def parse_educational_programs(filename: str):
     
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Помилка парсингу файлу: {str(e)}")
+    
+@router.get("/debug/files")
+async def list_files():
+    files = []
+    for file in os.listdir(settings.FILES_DIRECTORY):
+        file_path = os.path.join(settings.FILES_DIRECTORY, file)
+        files.append({
+            "filename": file,
+            "size": os.path.getsize(file_path) if os.path.isfile(file_path) else "directory",
+            "is_file": os.path.isfile(file_path),
+            "absolute_path": os.path.abspath(file_path)
+        })
+    return {
+        "files_directory": settings.FILES_DIRECTORY,
+        "files": files,
+        "cwd": os.getcwd(),
+        "base_dir": str(Path(__file__).resolve().parent.parent.parent)
+    }
