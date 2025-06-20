@@ -1,17 +1,32 @@
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Body
 from fastapi.responses import JSONResponse
 from typing import Dict, Any, List, Optional
 import os
 from app.services.parser_service import ParserService
 from app.core.config import settings
 from pathlib import Path
+from pydantic import BaseModel
 
 
 router = APIRouter()
 parser_service = ParserService()
 
-@router.get("/parse-students/{filename}", response_model=Dict[str, Any])
-async def parse_students(filename: str, limit: int = Query(5, description="Максимальна кількість рядків для обробки")):
+class ParseStudentsRequest(BaseModel):
+    filename: str
+    limit: int = 5
+
+class ParseDisciplinesRequest(BaseModel):
+    filename: str
+    limit: int = 5
+
+class ParseEducationalProgramsRequest(BaseModel):
+    filename: str
+
+@router.post("/parse-students", response_model=Dict[str, Any])
+async def parse_students(request_data: ParseStudentsRequest):
+    filename = request_data.filename
+    limit = request_data.limit
+    
     if not filename:
         return JSONResponse(
             status_code=400,
@@ -129,56 +144,159 @@ async def parse_students(filename: str, limit: int = Query(5, description="Ма�
             }
         )
 
-@router.get("/parse-disciplines/{filename}", response_model=Dict[str, Any])
-async def parse_disciplines(filename: str, limit: int = Query(5, description="Максимальна кількість рядків для обробки")):
+@router.post("/parse-disciplines", response_model=Dict[str, Any])
+async def parse_disciplines(request_data: ParseDisciplinesRequest):
+    filename = request_data.filename
+    limit = request_data.limit
+    
     file_extension = os.path.splitext(filename)[1].lower()
     
+    debug_info = {
+        "request_info": {
+            "requested_file": filename,
+            "file_extension": file_extension,
+            "processing_limit": limit
+        },
+        "system_info": {
+            "settings_files_directory": settings.FILES_DIRECTORY,
+            "full_file_path": os.path.join(settings.FILES_DIRECTORY, filename),
+            "file_exists": os.path.exists(os.path.join(settings.FILES_DIRECTORY, filename)),
+            "directory_exists": os.path.exists(settings.FILES_DIRECTORY),
+        }
+    }
+    
     if file_extension not in ['.xlsx', '.pdf', '.docx']:
-        raise HTTPException(
-            status_code=400, 
-            detail="Для парсингу дисциплін підтримуються файли Excel (.xlsx), PDF (.pdf) та Word (.docx)"
+        return JSONResponse(
+            status_code=400,
+            content={
+                "status": "error",
+                "detail": "Для парсингу дисциплін підтримуються файли Excel (.xlsx), PDF (.pdf) та Word (.docx)",
+                "supported_formats": [".xlsx", ".pdf", ".docx"],
+                "received_format": file_extension,
+                "debug_info": debug_info
+            }
         )
     
     file_path = os.path.join(settings.FILES_DIRECTORY, filename)
     
     if not os.path.exists(file_path):
-        raise HTTPException(status_code=404, detail=f"Файл {filename} не знайдено в директорії {settings.FILES_DIRECTORY}")
+        suggestions = []
+        
+        if os.path.exists(settings.FILES_DIRECTORY):
+            all_files = os.listdir(settings.FILES_DIRECTORY)
+            valid_files = [f for f in all_files if f.endswith(('.xlsx', '.pdf', '.docx'))]
+            
+            if valid_files:
+                suggestions.append(f"Доступні файли для парсингу дисциплін: {', '.join(valid_files)}")
+            else:
+                suggestions.append("Не знайдено відповідних файлів в директорії")
+        
+        return JSONResponse(
+            status_code=404,
+            content={
+                "status": "error",
+                "detail": f"Файл {filename} не знайдено в директорії {settings.FILES_DIRECTORY}",
+                "suggestions": suggestions,
+                "debug_info": debug_info
+            }
+        )
     
     try:
         disciplines = await parser_service.parse_disciplines(file_path, file_extension, limit)
         
         return {
+            "status": "success",
             "disciplines": disciplines,
             "total_processed": len(disciplines),
             "limit_applied": limit
         }
     
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Помилка парсингу файлу: {str(e)}")
+        error_message = str(e)
+        
+        return JSONResponse(
+            status_code=500,
+            content={
+                "status": "error",
+                "detail": f"Помилка парсингу файлу: {error_message}",
+                "debug_info": debug_info
+            }
+        )
 
-@router.get("/parse-educational-programs/{filename}", response_model=Dict[str, Any])
-async def parse_educational_programs(filename: str):
+@router.post("/parse-educational-programs", response_model=Dict[str, Any])
+async def parse_educational_programs(request_data: ParseEducationalProgramsRequest):
     """Парсинг файлу з освітніми програмами за назвою файлу (без обмежень)"""
+    filename = request_data.filename
     file_extension = os.path.splitext(filename)[1].lower()
     
+    debug_info = {
+        "request_info": {
+            "requested_file": filename,
+            "file_extension": file_extension
+        },
+        "system_info": {
+            "settings_files_directory": settings.FILES_DIRECTORY,
+            "full_file_path": os.path.join(settings.FILES_DIRECTORY, filename),
+            "file_exists": os.path.exists(os.path.join(settings.FILES_DIRECTORY, filename)),
+            "directory_exists": os.path.exists(settings.FILES_DIRECTORY),
+        }
+    }
+    
     if file_extension not in ['.pdf', '.docx']:
-        raise HTTPException(
-            status_code=400, 
-            detail="Для парсингу освітніх програм підтримуються файли PDF (.pdf) та Word (.docx)"
+        return JSONResponse(
+            status_code=400,
+            content={
+                "status": "error",
+                "detail": "Для парсингу освітніх програм підтримуються файли PDF (.pdf) та Word (.docx)",
+                "supported_formats": [".pdf", ".docx"],
+                "received_format": file_extension,
+                "debug_info": debug_info
+            }
         )
     
     file_path = os.path.join(settings.FILES_DIRECTORY, filename)
     
     if not os.path.exists(file_path):
-        raise HTTPException(status_code=404, detail=f"Файл {filename} не знайдено в директорії {settings.FILES_DIRECTORY}")
+        suggestions = []
+        
+        if os.path.exists(settings.FILES_DIRECTORY):
+            all_files = os.listdir(settings.FILES_DIRECTORY)
+            valid_files = [f for f in all_files if f.endswith(('.pdf', '.docx'))]
+            
+            if valid_files:
+                suggestions.append(f"Доступні файли для парсингу освітніх програм: {', '.join(valid_files)}")
+            else:
+                suggestions.append("Не знайдено відповідних файлів в директорії")
+                
+        return JSONResponse(
+            status_code=404,
+            content={
+                "status": "error",
+                "detail": f"Файл {filename} не знайдено в директорії {settings.FILES_DIRECTORY}",
+                "suggestions": suggestions,
+                "debug_info": debug_info
+            }
+        )
     
     try:
         result = await parser_service.parse_educational_programs(file_path, file_extension)
         
-        return result
+        return {
+            "status": "success",
+            **result
+        }
     
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Помилка парсингу файлу: {str(e)}")
+        error_message = str(e)
+        
+        return JSONResponse(
+            status_code=500,
+            content={
+                "status": "error",
+                "detail": f"Помилка парсингу файлу: {error_message}",
+                "debug_info": debug_info
+            }
+        )
     
 @router.get("/debug/files")
 async def list_files():
