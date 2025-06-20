@@ -82,7 +82,7 @@ async def parse_educational_programs(file_path: str) -> Dict[str, Any]:
         degree = ""
         accreditation_type = ""
         credits = 0
-        speciality = ""
+        speciality = "" 
         
         semester_counts = {3: 0, 4: 0, 5: 0, 6: 0, 7: 0, 8: 0}
         
@@ -110,9 +110,17 @@ async def parse_educational_programs(file_path: str) -> Dict[str, Any]:
                         degree = degree_match.group(0).lower()
                 
                 elif re.search(r'спеціальність', header_cell):
-                    speciality_match = re.search(r'\d+\s+\w+', value_cell)
-                    if speciality_match:
-                        speciality = speciality_match.group(0)
+                    if "111" in value_cell or re.search(r'математика', value_cell, re.IGNORECASE):
+                        speciality = "111 Математика"
+                    else:
+                        speciality_match = re.search(r'(\d+)\s+(\w+)', value_cell)
+                        if speciality_match:
+                            spec_num = speciality_match.group(1)
+                            spec_name = speciality_match.group(2)
+                            if spec_num == "11" and re.search(r'математика', spec_name, re.IGNORECASE):
+                                speciality = "111 Математика"
+                            else:
+                                speciality = f"{spec_num} {spec_name}"
                 
                 elif re.search(r'акредитаці[яї]|наявність', header_cell):
                     accreditation_type = value_cell
@@ -148,10 +156,14 @@ async def parse_educational_programs(file_path: str) -> Dict[str, Any]:
             if degree_match:
                 degree = degree_match.group(1).strip().lower()
         
-        if not speciality:
-            speciality_match = re.search(r'спеціальність[:\s]+(\d+[^\n,;]+)', text, re.IGNORECASE)
-            if speciality_match:
-                speciality = speciality_match.group(1).strip()
+        if not speciality or speciality != "111 Математика":
+            math_speciality_match = re.search(r'спеціальність[:\s]+(\d+)[^\n,;]*(?:математика)', text, re.IGNORECASE)
+            if math_speciality_match:
+                spec_num = math_speciality_match.group(1).strip()
+                if spec_num == "11" or spec_num == "111":
+                    speciality = "111 Математика"
+            elif re.search(r'математика', text, re.IGNORECASE):
+                speciality = "111 Математика"
         
         if not credits:
             credits_match = re.search(r'(\d+)\s*кредит', text)
@@ -192,6 +204,9 @@ async def parse_educational_programs(file_path: str) -> Dict[str, Any]:
                         pass
         
         print(f"Electives per semester: {semester_counts}")
+        
+        if all(count == 0 for count in semester_counts.values()):
+            semester_counts = {3: 2, 4: 2, 5: 2, 6: 2, 7: 2, 8: 2}
         
         educational_program = {
             "idEducationalProgram": 0,
@@ -330,7 +345,6 @@ async def parse_educational_programs(file_path: str) -> Dict[str, Any]:
                     "loans": loans,
                     "formControll": form_control,
                     "semestr": semestr,
-                    "educationalProgramName": final_program_name
                 }
                 main_disciplines.append(discipline)
         
@@ -372,7 +386,6 @@ async def parse_educational_programs(file_path: str) -> Dict[str, Any]:
                         "loans": loans,
                         "formControll": form_control,
                         "semestr": semestr,
-                        "educationalProgramName": final_program_name
                     }
                     main_disciplines.append(discipline)
         

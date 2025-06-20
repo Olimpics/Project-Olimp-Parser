@@ -140,7 +140,6 @@ async def parse_educational_programs(file_path: str) -> Dict[str, Any]:
             else:
                 speciality = spec_num
         
-        # Extract credits
         credits_match = re.search(r'(\d+)\s*кредит', text, re.IGNORECASE)
         if credits_match:
             credits = int(credits_match.group(1))
@@ -219,7 +218,6 @@ async def parse_educational_programs(file_path: str) -> Dict[str, Any]:
                     "loans": loans,
                     "formControll": form_control,
                     "semestr": semestr,
-                    "educationalProgramName": program_name
                 }
                 main_disciplines.append(discipline)
             
@@ -269,7 +267,6 @@ async def parse_educational_programs(file_path: str) -> Dict[str, Any]:
                         "loans": loans,
                         "formControll": form_control,
                         "semestr": semestr,
-                        "educationalProgramName": program_name
                     }
                     main_disciplines.append(discipline)
         
@@ -303,7 +300,6 @@ async def parse_educational_programs(file_path: str) -> Dict[str, Any]:
                     "loans": loans,
                     "formControll": form_control,
                     "semestr": semestr,
-                    "educationalProgramName": program_name
                 }
                 main_disciplines.append(discipline)
         
@@ -343,7 +339,6 @@ async def parse_educational_programs(file_path: str) -> Dict[str, Any]:
             educational_program["countAddSemestr7"] = semester_counts[7]
             educational_program["countAddSemestr8"] = semester_counts[8]
         
-        # Sort disciplines by code
         main_disciplines.sort(key=lambda d: d["codeMainDisciplines"])
         
         return {
