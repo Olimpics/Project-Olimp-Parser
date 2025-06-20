@@ -12,7 +12,7 @@ router = APIRouter()
 parser_service = ParserService()
 
 class ParseStudentsRequest(BaseModel):
-    filename: str
+    fileName: str
     limit: int = 5
 
 class ParseDisciplinesRequest(BaseModel):
