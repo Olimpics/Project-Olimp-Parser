@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     APP_NAME: str = "Document Parser Microservice"
     DEBUG: bool = True
     FILES_DIRECTORY: str = str(BASE_DIR / "input_files")
-    UPLOAD_FOLDER: str = str(BASE_DIR / "uploads")  # Директория для временных загруженных файлов
+    UPLOAD_FOLDER: str = str(BASE_DIR / "uploads")
     database_url: str = "sqlite:///./test.db"
     secret_key: str = "your_secret_key"
 
@@ -27,13 +27,11 @@ print(f"Base directory: {BASE_DIR}")
 try:
     settings = Settings()
     
-    # Проверяем, установлена ли переменная окружения FILES_DIRECTORY напрямую
     env_files_dir = os.environ.get("FILES_DIRECTORY")
     if env_files_dir:
         settings.FILES_DIRECTORY = env_files_dir
         print(f"Overriding FILES_DIRECTORY from environment variable: {settings.FILES_DIRECTORY}")
 
-    # То же самое для UPLOAD_FOLDER
     env_upload_folder = os.environ.get("UPLOAD_FOLDER")
     if env_upload_folder:
         settings.UPLOAD_FOLDER = env_upload_folder
@@ -44,7 +42,6 @@ try:
     print(f"FILES_DIRECTORY: {settings.FILES_DIRECTORY}")
     print(f"UPLOAD_FOLDER: {settings.UPLOAD_FOLDER}")
     
-    # Проверяем наличие директорий и создаем их при необходимости
     for directory in [settings.FILES_DIRECTORY, settings.UPLOAD_FOLDER]:
         print(f"Checking directory: {directory}")
         print(f"Directory exists: {os.path.exists(directory)}")
@@ -56,7 +53,6 @@ try:
             except Exception as e:
                 print(f"Error creating directory {directory}: {e}")
                 
-                # На хостинге, если нет прав создать директорию, используем временную директорию
                 import tempfile
                 temp_dir = tempfile.gettempdir()
                 alt_dir = os.path.join(temp_dir, os.path.basename(directory))
@@ -70,7 +66,6 @@ try:
                     
                 print(f"Using alternative directory: {alt_dir}")
     
-    # Проверяем права на запись
     for directory in [settings.FILES_DIRECTORY, settings.UPLOAD_FOLDER]:
         try:
             test_file_path = os.path.join(directory, "test_write.txt")
@@ -81,7 +76,6 @@ try:
         except Exception as e:
             print(f"Warning: Cannot write to directory {directory}: {e}")
             
-            # Если нет прав на запись, пробуем использовать временную директорию
             import tempfile
             temp_dir = tempfile.gettempdir()
             alt_dir = os.path.join(temp_dir, os.path.basename(directory))
@@ -116,7 +110,6 @@ except Exception as e:
             except Exception as e:
                 print(f"Error creating directory {directory}: {e}")
                 
-                # Если не удалось создать директорию, используем tmp
                 import tempfile
                 temp_dir = tempfile.gettempdir()
                 alt_dir = os.path.join(temp_dir, os.path.basename(directory))
