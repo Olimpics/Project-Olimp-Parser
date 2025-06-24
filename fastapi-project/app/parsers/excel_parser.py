@@ -59,19 +59,19 @@ async def parse_students(file_path: str, limit: int = 5) -> List[Dict[str, Any]]
                     is_short = "1"
             
             student = {
-                "studentID": int(row[id_col]) if pd.notna(row[id_col]) else 0,
-                "nameStudent": str(row[name_col]) if pd.notna(row[name_col]) else "",
-                "statusId": str(row[status_col]) if pd.notna(row[status_col]) else "0",
+                "IDstudent": int(row[id_col]) if pd.notna(row[id_col]) else None,
+                "nameStudent": str(row[name_col]) if pd.notna(row[name_col]) else None,
+                "statusId": str(row[status_col]) if pd.notna(row[status_col]) else None,
                 "educationStart": education_start,
                 "educationEnd": education_end,
-                "course": str(row[course_col]) if pd.notna(row[course_col]) else "0",
-                "facultyId": str(row[faculty_col]) if pd.notna(row[faculty_col]) else "0",
-                "educationalDegreeId": str(row[degree_col]) if pd.notna(row[degree_col]) else "0",
-                "studyFormId": str(row[study_form_col]) if pd.notna(row[study_form_col]) else "0",
+                "course": str(row[course_col]) if pd.notna(row[course_col]) else None,
+                "facultyId": str(row[faculty_col]) if pd.notna(row[faculty_col]) else None,
+                "educationalDegreeId": str(row[degree_col]) if pd.notna(row[degree_col]) else None,
+                "studyFormId": str(row[study_form_col]) if pd.notna(row[study_form_col]) else None,
                 "isShort": is_short,
-                "educationalProgramId": str(row[edu_prog_col]) if pd.notna(row[edu_prog_col]) else "0",
-                "departmentId": "0",  # За замовчуванням
-                "groupId": str(row[group_col]) if pd.notna(row[group_col]) else "0"
+                "educationalProgramId": str(row[edu_prog_col]) if pd.notna(row[edu_prog_col]) else None,
+                "departmentId": None,  # За замовчуванням
+                "groupId": str(row[group_col]) if pd.notna(row[group_col]) else None
             }
             students.append(student)
         
