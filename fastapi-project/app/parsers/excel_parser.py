@@ -1,9 +1,50 @@
 from typing import Dict, Any, List
 import pandas as pd
+import httpx
 import os
+
+async def get_faculty_map() -> Dict[str, int]:
+    url = "https://localhost:7011/api/Faculty"
+    async with httpx.AsyncClient(verify=False) as client:
+        response = await client.get(url, headers={"accept": "text/plain"})
+        response.raise_for_status()
+        faculties = response.json()
+        return {f["nameFaculty"]: f["idFaculty"] for f in faculties}
+
+async def get_degree_map() -> Dict[str, int]:
+    url = "https://localhost:7011/api/EducationalDegree"
+    async with httpx.AsyncClient(verify=False) as client:
+        response = await client.get(url, headers={"accept": "text/plain"})
+        response.raise_for_status()
+        degrees = response.json()
+        return {d["nameEducationalDegreec"]: d["idEducationalDegree"] for d in degrees}
+
+async def get_study_form_map() -> Dict[str, int]:
+    url = "https://localhost:7011/api/StudyForm"
+    async with httpx.AsyncClient(verify=False) as client:
+        response = await client.get(url, headers={"accept": "text/plain"})
+        response.raise_for_status()
+        forms = response.json()
+        return {f["nameStudyForm"]: f["idStudyForm"] for f in forms}
+
+async def get_group_map() -> Dict[str, Dict[str, int]]:
+    url = "https://localhost:7011/api/Group?sortOrder=0"
+    async with httpx.AsyncClient(verify=False) as client:
+        response = await client.get(url, headers={"accept": "text/plain"})
+        response.raise_for_status()
+        groups = response.json()
+        return {g["code"].strip().upper(): {"groupId": g["id"], "departmentId": g["departmentId"]} for g in groups}
 
 async def parse_students(file_path: str, limit: int = 5) -> List[Dict[str, Any]]:
     try:
+        faculty_name_to_id = await get_faculty_map()
+        degree_name_to_id = await get_degree_map()
+        study_form_name_to_id = await get_study_form_map()
+        group_code_to_ids = await get_group_map()
+
+
+
+
         df = pd.read_excel(file_path, header=None)
         
         df = df.iloc[1:]
@@ -25,6 +66,34 @@ async def parse_students(file_path: str, limit: int = 5) -> List[Dict[str, Any]]
             edu_prog_col = 14  # O: ID ОП
             course_col = 17  # R: Курс
             group_col = 18  # S: Група
+
+            faculty_name = str(row[faculty_col]) if pd.notna(row[faculty_col]) else None
+            faculty_id = faculty_name_to_id.get(faculty_name) if faculty_name else None
+
+            degree_name = str(row[degree_col]) if pd.notna(row[degree_col]) else None
+            educational_degree_id = degree_name_to_id.get(degree_name) if degree_name else None
+
+            study_form_name = str(row[study_form_col]) if pd.notna(row[study_form_col]) else None
+            study_form_id = study_form_name_to_id.get(study_form_name) if study_form_name else None
+
+            group_code = str(row[group_col]).strip().upper() if pd.notna(row[group_col]) else None
+            
+            if group_code:
+                found = group_code in group_code_to_ids
+                print(f"Шукаю групу: '{group_code}', Знайдено: {found}")
+                if not found:
+                    similar_codes = [code for code in group_code_to_ids.keys() 
+                                   if code.replace("-", "").lower() == group_code.replace("-", "").lower()]
+                    if similar_codes:
+                        print(f"Знайдено схожі коди: {similar_codes}")
+            
+            group_info = group_code_to_ids.get(group_code) if group_code else None
+            group_id = group_info["groupId"] if group_info else None
+            department_id = group_info["departmentId"] if group_info else None
+
+            print("Excel group_code:", group_code)
+            print("Available group codes:", list(group_code_to_ids.keys()))
+
 
             education_start = None
             if pd.notna(row[start_date_col]):
@@ -61,17 +130,17 @@ async def parse_students(file_path: str, limit: int = 5) -> List[Dict[str, Any]]
             student = {
                 "IDstudent": int(row[id_col]) if pd.notna(row[id_col]) else None,
                 "nameStudent": str(row[name_col]) if pd.notna(row[name_col]) else None,
-                "statusId": str(row[status_col]) if pd.notna(row[status_col]) else None,
+                # "statusId": str(row[status_col]) if pd.notna(row[status_col]) else None,
                 "educationStart": education_start,
                 "educationEnd": education_end,
-                "course": str(row[course_col]) if pd.notna(row[course_col]) else None,
-                "facultyId": str(row[faculty_col]) if pd.notna(row[faculty_col]) else None,
-                "educationalDegreeId": str(row[degree_col]) if pd.notna(row[degree_col]) else None,
-                "studyFormId": str(row[study_form_col]) if pd.notna(row[study_form_col]) else None,
-                "isShort": is_short,
-                "educationalProgramId": str(row[edu_prog_col]) if pd.notna(row[edu_prog_col]) else None,
-                "departmentId": None,  # За замовчуванням
-                "groupId": str(row[group_col]) if pd.notna(row[group_col]) else None
+                "course": int(row[course_col]) if pd.notna(row[course_col]) else None,
+                "facultyId": faculty_id,
+                "educationalDegreeId": educational_degree_id,
+                "studyFormId": study_form_id,
+                "isShort": int(is_short),
+                "educationalProgramId": int(row[edu_prog_col]) if pd.notna(row[edu_prog_col]) else None,
+                "departmentId": department_id,
+                "groupId": group_id
             }
             students.append(student)
         
