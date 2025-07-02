@@ -5,11 +5,13 @@ import sys
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
+
 class Settings(BaseSettings):
     APP_NAME: str = "Document Parser Microservice"
     DEBUG: bool = True
     FILES_DIRECTORY: str = str(BASE_DIR / "input_files")
     UPLOAD_FOLDER: str = str(BASE_DIR / "uploads")
+    OUTPUT_JSON_FOLDER: str = str(BASE_DIR / "output_json_files")
     database_url: str = "sqlite:///./test.db"
     secret_key: str = "your_secret_key"
 
@@ -66,7 +68,7 @@ try:
                     
                 print(f"Using alternative directory: {alt_dir}")
     
-    for directory in [settings.FILES_DIRECTORY, settings.UPLOAD_FOLDER]:
+    for directory in [settings.FILES_DIRECTORY, settings.UPLOAD_FOLDER, settings.OUTPUT_JSON_FOLDER]:
         try:
             test_file_path = os.path.join(directory, "test_write.txt")
             with open(test_file_path, "w") as f:

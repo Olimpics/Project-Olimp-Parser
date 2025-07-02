@@ -1,0 +1,26 @@
+[
+  {
+    "IDstudent": 5828052,
+    "nameStudent": "Абакумов Дмитффо Олекппандффович",
+    "educationStart": {
+      "year": 2024,
+      "month": 9,
+      "day": 1,
+      "dayOfWeek": 6
+    },
+    "educationEnd": {
+      "year": 2025,
+      "month": 12,
+      "day": 31,
+      "dayOfWeek": 2
+    },
+    "course": 1,
+    "facultyId": 10,
+    "educationalDegreeId": 2,
+    "studyFormId": 1,
+    "isShort": 0,
+    "educationalProgramId": 23648,
+    "departmentId": null,
+    "groupId": null
+  }
+]

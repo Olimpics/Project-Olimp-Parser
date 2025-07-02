@@ -6,6 +6,9 @@ from app.services.parser_service import ParserService
 from app.core.config import settings
 from pathlib import Path
 from pydantic import BaseModel
+from app.parsers.excel_parser import parse_students as excel_parse_students
+from app.core.config import settings
+        
 
 
 router = APIRouter()
@@ -14,6 +17,7 @@ parser_service = ParserService()
 class ParseStudentsRequest(BaseModel):
     fileName: str
     limit: int = 5
+    outputFile: str = None
 
 class ParseDisciplinesRequest(BaseModel):
     filename: str
@@ -24,22 +28,31 @@ class ParseEducationalProgramsRequest(BaseModel):
 
 @router.post("/parse-students", response_model=Dict[str, Any])
 async def parse_students(request_data: ParseStudentsRequest):
+    """
+    Парсинг даних студентів з Excel файлу.
+    
+    Приймає назву файлу, опціональний ліміт рядків та ім'я вихідного файлу.
+    Може зберігати результат у JSON файл в директорії output_json_files.
+    """
     filename = request_data.fileName
     limit = request_data.limit
+    output_file = request_data.outputFile
     
     if not filename:
         return JSONResponse(
             status_code=400,
             content={
                 "status": "error",
-                "detail": "Не вказано ім'я файлу. Необхідно вказати параметр filename.",
+                "detail": "Не вказано ім'я файлу. Необхідно вказати параметр fileName.",
                 "required_params": {
-                    "filename": "Назва файлу для парсингу (обов'язковий параметр)",
-                    "limit": "Максимальна кількість рядків для обробки (опціональний параметр, за замовчуванням: 5)"
+                    "fileName": "Назва файлу для парсингу (обов'язковий параметр)",
+                    "limit": "Максимальна кількість рядків для обробки (опціональний параметр, за замовчуванням: 5)",
+                    "outputFile": "Назва файлу для збереження результатів у форматі JSON (опціональний параметр)"
                 },
                 "received_params": {
-                    "filename": filename,
-                    "limit": limit
+                    "fileName": filename,
+                    "limit": limit,
+                    "outputFile": output_file
                 }
             }
         )
@@ -62,13 +75,16 @@ async def parse_students(request_data: ParseStudentsRequest):
         "request_info": {
             "requested_file": filename,
             "file_extension": file_extension,
-            "processing_limit": limit
+            "processing_limit": limit,
+            "output_file": output_file
         },
         "system_info": {
             "settings_files_directory": settings.FILES_DIRECTORY,
             "full_file_path": file_path,
             "file_exists": os.path.exists(file_path),
             "directory_exists": os.path.exists(settings.FILES_DIRECTORY),
+            "output_directory": settings.OUTPUT_JSON_FOLDER,
+            "output_directory_exists": os.path.exists(settings.OUTPUT_JSON_FOLDER)
         }
     }
     
@@ -114,15 +130,58 @@ async def parse_students(request_data: ParseStudentsRequest):
         )
     
     try:
-        students = await parser_service.parse_students(file_path, file_extension, int(limit))
+        # Парсимо дані з файлу
+        from app.parsers.excel_parser import parse_students as excel_parse_students
         
-        return {
-            "status": "success",
-            "students": students,
-            "total_processed": len(students),
-            "limit_applied": limit
-        }
-    
+        # Обробляємо результат парсингу
+        result_data = await excel_parse_students(file_path, limit, output_file)
+        
+        # Перевіряємо, чи функція повернула кортеж (студенти, шлях_до_файлу)
+        if isinstance(result_data, tuple) and len(result_data) == 2:
+            students, saved_file_path = result_data
+            
+            result = {
+                "status": "success", 
+                "data": students,
+                "output_file": {
+                    "path": saved_file_path,
+                    "size": os.path.getsize(saved_file_path) if os.path.exists(saved_file_path) else 0,
+                    "created": os.path.exists(saved_file_path)
+                }
+            }
+        else:
+            # Якщо функція повернула тільки дані студентів
+            students = result_data
+            
+            result = {
+                "status": "success", 
+                "data": students
+            }
+            
+            # Перевіряємо, чи був запит на збереження файлу
+            if output_file:
+                # Визначаємо шлях до файлу
+                if os.path.dirname(output_file) == "":
+                    output_path = os.path.join(settings.OUTPUT_JSON_FOLDER, output_file)
+                else:
+                    output_path = output_file
+                
+                # Додаємо інформацію про файл у відповідь
+                if os.path.exists(output_path):
+                    result["output_file"] = {
+                        "path": output_path,
+                        "size": os.path.getsize(output_path),
+                        "created": True
+                    }
+                else:
+                    result["output_file"] = {
+                        "path": output_path,
+                        "created": False,
+                        "error": "Файл не було створено"
+                    }
+        
+        return result
+
     except Exception as e:
         error_message = str(e)
         suggestions = ["Переконайтеся, що файл має правильний формат Excel для списку студентів"]
@@ -133,6 +192,12 @@ async def parse_students(request_data: ParseStudentsRequest):
             suggestions.append("Перевірте, чи є в Excel файлі потрібний аркуш")
         elif "column" in error_message.lower() or "row" in error_message.lower():
             suggestions.append("Структура таблиці може не відповідати очікуваному формату")
+        elif "output_file" in error_message.lower() or "json" in error_message.lower():
+            suggestions.append("Виникла помилка при збереженні результатів у JSON файл")
+            if "Permission denied" in error_message:
+                suggestions.append("Немає дозволу на запис до вказаної директорії")
+            elif "No such file or directory" in error_message:
+                suggestions.append("Вказана директорія не існує")
         
         return JSONResponse(
             status_code=500,

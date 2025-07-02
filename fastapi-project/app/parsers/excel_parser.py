@@ -2,6 +2,10 @@ from typing import Dict, Any, List
 import pandas as pd
 import httpx
 import os
+import json
+from pathlib import Path
+from app.core.config import settings
+
 
 async def get_faculty_map() -> Dict[str, int]:
     url = "https://localhost:7011/api/Faculty"
@@ -35,15 +39,40 @@ async def get_group_map() -> Dict[str, Dict[str, int]]:
         groups = response.json()
         return {g["code"].strip().upper(): {"groupId": g["id"], "departmentId": g["departmentId"]} for g in groups}
 
-async def parse_students(file_path: str, limit: int = 5) -> List[Dict[str, Any]]:
+def save_to_json(data: List[Dict[str, Any]], output_file: str) -> str:
+    """
+    Зберігає дані у JSON-файл і повертає шлях до збереженого файлу.
+    
+    Args:
+        data: Дані для збереження
+        output_file: Шлях до вихідного файлу
+    
+    Returns:
+        Повний шлях до збереженого файлу
+    """
+    from app.core.config import settings
+    
+    # Якщо вказано тільки ім'я файлу без шляху, зберігаємо в директорію output_json_files
+    if os.path.dirname(output_file) == "":
+        output_path = os.path.join(settings.OUTPUT_JSON_FOLDER, output_file)
+    else:
+        output_path = output_file
+    
+    # Переконуємося, що директорія існує
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    
+    # Зберігаємо JSON-файл
+    with open(output_path, 'w', encoding='utf-8') as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+    
+    return output_path
+
+async def parse_students(file_path: str, limit: int = 5, output_file: str = None) -> List[Dict[str, Any]]:
     try:
         faculty_name_to_id = await get_faculty_map()
         degree_name_to_id = await get_degree_map()
         study_form_name_to_id = await get_study_form_map()
         group_code_to_ids = await get_group_map()
-
-
-
 
         df = pd.read_excel(file_path, header=None)
         
@@ -90,10 +119,6 @@ async def parse_students(file_path: str, limit: int = 5) -> List[Dict[str, Any]]
             group_info = group_code_to_ids.get(group_code) if group_code else None
             group_id = group_info["groupId"] if group_info else None
             department_id = group_info["departmentId"] if group_info else None
-
-            print("Excel group_code:", group_code)
-            print("Available group codes:", list(group_code_to_ids.keys()))
-
 
             education_start = None
             if pd.notna(row[start_date_col]):
@@ -144,13 +169,32 @@ async def parse_students(file_path: str, limit: int = 5) -> List[Dict[str, Any]]
             }
             students.append(student)
         
+        # Зберігаємо результат у JSON-файл, якщо вказано шлях
+        if output_file:
+            if os.path.dirname(output_file) == "":
+                output_path = os.path.join(settings.OUTPUT_JSON_FOLDER, output_file)
+            else:
+                output_path = output_file
+                
+            # Переконуємося, що директорія існує
+            os.makedirs(os.path.dirname(output_path), exist_ok=True)
+            
+            # Зберігаємо JSON-файл
+            with open(output_path, 'w', encoding='utf-8') as f:
+                json.dump(students, f, ensure_ascii=False, indent=2)
+                
+            print(f"Результати збережено у файл: {output_path}")
+            
+            # Повертаємо повний шлях до збереженого файлу
+            return students, output_path
+        
         return students
     
     except Exception as e:
         print(f"Помилка при парсингу Excel файлу студентів: {str(e)}")
         raise ValueError(f"Не вдалося розібрати файл студентів: {str(e)}")
-
-async def parse_disciplines(file_path: str, limit: int = 5) -> List[Dict[str, Any]]:
+    
+async def parse_disciplines(file_path: str, limit: int = 5, output_file: str = None) -> List[Dict[str, Any]]:
     try:
         df = pd.read_excel(file_path)
         
@@ -187,6 +231,11 @@ async def parse_disciplines(file_path: str, limit: int = 5) -> List[Dict[str, An
                 "idAddDisciplines": int(row.get("ID", 0))
             }
             disciplines.append(discipline)
+        
+        # Зберігаємо результат у JSON-файл, якщо вказано шлях
+        if output_file:
+            saved_path = save_to_json(disciplines, output_file)
+            print(f"Результати збережено у файл: {saved_path}")
         
         return disciplines
     
