@@ -8,11 +8,12 @@ from pathlib import Path
 from pydantic import BaseModel
 from app.parsers.excel_parser import parse_students as excel_parse_students
 from app.core.config import settings
-        
-
+import pandas as pd        
 
 router = APIRouter()
 parser_service = ParserService()
+
+EXPORT_DIR = settings.OUTPUT_EXPORT_FOLDER
 
 class ParseStudentsRequest(BaseModel):
     fileName: str
@@ -26,14 +27,61 @@ class ParseDisciplinesRequest(BaseModel):
 class ParseEducationalProgramsRequest(BaseModel):
     filename: str
 
+class ExportDataRequest(BaseModel):
+    data: list
+    filename: str = "exported_data.xlsx"
+
+
+@router.post("/export-data", response_model=Dict[str, Any])
+async def export_data(request_data: ExportDataRequest):
+    filename = request_data.filename or "exported_data.xlsx"
+    data = request_data.data
+
+    if not data or not isinstance(data, list):
+        return JSONResponse(
+            status_code=400,
+            content={
+                "status": "error",
+                "detail": "Не передані дані для експорту. Потрібен список об'єктів у полі 'data'.",
+                "required_params": {
+                    "data": "Список словників для експорту",
+                    "filename": "Назва файлу для експорту (опціонально)"
+                },
+                "received_params": {
+                    "data": data,
+                    "filename": filename
+                }
+            }
+        )
+
+    export_path = os.path.join(EXPORT_DIR, filename)
+
+    try:
+        df = pd.DataFrame(data)
+        df.to_excel(export_path, index=False)
+
+        return JSONResponse(
+            status_code=200,
+            content={
+                "status": "success",
+                "detail": f"Дані успішно експортовано у файл {filename}",
+                "file_path": export_path,
+                "file_exists": os.path.exists(export_path),
+                "file_size": os.path.getsize(export_path) if os.path.exists(export_path) else 0
+            }
+        )
+    except Exception as e:
+        return JSONResponse(
+            status_code=500,
+            content={
+                "status": "error",
+                "detail": f"Помилка експорту у Excel: {str(e)}",
+                "file_path": export_path
+            }
+        )
+
 @router.post("/parse-students", response_model=Dict[str, Any])
 async def parse_students(request_data: ParseStudentsRequest):
-    """
-    Парсинг даних студентів з Excel файлу.
-    
-    Приймає назву файлу, опціональний ліміт рядків та ім'я вихідного файлу.
-    Може зберігати результат у JSON файл в директорії output_json_files.
-    """
     filename = request_data.fileName
     limit = request_data.limit
     output_file = request_data.outputFile
@@ -130,13 +178,8 @@ async def parse_students(request_data: ParseStudentsRequest):
         )
     
     try:
-        # Парсимо дані з файлу
-        from app.parsers.excel_parser import parse_students as excel_parse_students
-        
-        # Обробляємо результат парсингу
         result_data = await excel_parse_students(file_path, limit, output_file)
         
-        # Перевіряємо, чи функція повернула кортеж (студенти, шлях_до_файлу)
         if isinstance(result_data, tuple) and len(result_data) == 2:
             students, saved_file_path = result_data
             
@@ -150,7 +193,6 @@ async def parse_students(request_data: ParseStudentsRequest):
                 }
             }
         else:
-            # Якщо функція повернула тільки дані студентів
             students = result_data
             
             result = {
@@ -158,15 +200,12 @@ async def parse_students(request_data: ParseStudentsRequest):
                 "data": students
             }
             
-            # Перевіряємо, чи був запит на збереження файлу
             if output_file:
-                # Визначаємо шлях до файлу
                 if os.path.dirname(output_file) == "":
                     output_path = os.path.join(settings.OUTPUT_JSON_FOLDER, output_file)
                 else:
                     output_path = output_file
                 
-                # Додаємо інформацію про файл у відповідь
                 if os.path.exists(output_path):
                     result["output_file"] = {
                         "path": output_path,

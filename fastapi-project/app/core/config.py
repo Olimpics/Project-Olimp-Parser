@@ -12,6 +12,8 @@ class Settings(BaseSettings):
     FILES_DIRECTORY: str = str(BASE_DIR / "input_files")
     UPLOAD_FOLDER: str = str(BASE_DIR / "uploads")
     OUTPUT_JSON_FOLDER: str = str(BASE_DIR / "output_json_files")
+    OUTPUT_EXPORT_FOLDER: str = str(BASE_DIR / "output_export_files")
+
     database_url: str = "sqlite:///./test.db"
     secret_key: str = "your_secret_key"
 
@@ -44,28 +46,33 @@ try:
     print(f"FILES_DIRECTORY: {settings.FILES_DIRECTORY}")
     print(f"UPLOAD_FOLDER: {settings.UPLOAD_FOLDER}")
     
-    for directory in [settings.FILES_DIRECTORY, settings.UPLOAD_FOLDER]:
+    for directory in [
+        settings.FILES_DIRECTORY,
+        settings.UPLOAD_FOLDER,
+        settings.OUTPUT_JSON_FOLDER,
+        settings.OUTPUT_EXPORT_FOLDER 
+    ]:
         print(f"Checking directory: {directory}")
         print(f"Directory exists: {os.path.exists(directory)}")
-        
         if not os.path.exists(directory):
             try:
                 os.makedirs(directory, exist_ok=True)
                 print(f"Created directory: {directory}")
             except Exception as e:
                 print(f"Error creating directory {directory}: {e}")
-                
                 import tempfile
                 temp_dir = tempfile.gettempdir()
                 alt_dir = os.path.join(temp_dir, os.path.basename(directory))
                 print(f"Trying alternative directory: {alt_dir}")
                 os.makedirs(alt_dir, exist_ok=True)
-                
                 if directory == settings.FILES_DIRECTORY:
                     settings.FILES_DIRECTORY = alt_dir
                 elif directory == settings.UPLOAD_FOLDER:
                     settings.UPLOAD_FOLDER = alt_dir
-                    
+                elif directory == settings.OUTPUT_JSON_FOLDER:
+                    settings.OUTPUT_JSON_FOLDER = alt_dir
+                elif directory == settings.OUTPUT_EXPORT_FOLDER:
+                    settings.OUTPUT_EXPORT_FOLDER = alt_dir
                 print(f"Using alternative directory: {alt_dir}")
     
     for directory in [settings.FILES_DIRECTORY, settings.UPLOAD_FOLDER, settings.OUTPUT_JSON_FOLDER]:
@@ -98,9 +105,10 @@ except Exception as e:
         DEBUG = True
         FILES_DIRECTORY = str(BASE_DIR / "input_files")
         UPLOAD_FOLDER = str(BASE_DIR / "uploads")
+        OUTPUT_JSON_FOLDER = str(BASE_DIR / "output_json_files")
+        OUTPUT_EXPORT_FOLDER = str(BASE_DIR / "output_export_files")
         database_url = "sqlite:///./test.db"
         secret_key = "default_fallback_key"
-    
     settings = FallbackSettings()
     print(f"Using fallback settings")
     
